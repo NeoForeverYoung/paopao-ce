@@ -192,6 +192,7 @@ func RegisterLooseServant(e *gin.Engine, s Loose) {
 		}
 		// 创建时间线请求结构体，用于接收全站动态流参数
 		req := new(web.TimelineReq)
+		// TODO 这个binding_ 是什么？
 		var bv _binding_ = req
 		// 绑定并验证请求参数，TimelineReq有自定义Bind方法处理特殊逻辑
 		if err := bv.Bind(c); err != nil {
