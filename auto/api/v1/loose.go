@@ -12,30 +12,55 @@ import (
 	"github.com/rocboss/paopao-ce/internal/model/web"
 )
 
+// Loose 宽松权限接口定义
+// 这个接口定义了不需要严格身份验证的公开API端点
+// 包括获取动态列表、用户信息、话题列表等功能
 type Loose interface {
 	_default_
 
-	// Chain provide handlers chain for gin
+	// Chain 提供 gin 中间件链
+	// 返回用于此服务的中间件处理链
 	Chain() gin.HandlersChain
 
+	// TweetDetail 获取动态详情
+	// 根据动态ID获取单条动态的详细信息
 	TweetDetail(*web.TweetDetailReq) (*web.TweetDetailResp, error)
+
+	// TweetComments 获取动态评论列表
+	// 获取指定动态下的所有评论，支持分页和排序
 	TweetComments(*web.TweetCommentsReq) (*web.TweetCommentsResp, error)
+
+	// TopicList 获取话题标签列表
+	// 获取热门、最新或关注的话题标签
 	TopicList(*web.TopicListReq) (*web.TopicListResp, error)
+
+	// GetUserProfile 获取用户基本资料
+	// 根据用户名获取用户的公开信息
 	GetUserProfile(*web.GetUserProfileReq) (*web.GetUserProfileResp, error)
+
+	// GetUserTweets 获取用户动态列表
+	// 获取指定用户发布的动态列表，支持不同样式和分页
 	GetUserTweets(*web.GetUserTweetsReq) (*web.GetUserTweetsResp, error)
+
+	// Timeline 获取时间线动态流
+	// 获取首页动态流，包括最新、热门、关注等不同类型
 	Timeline(*web.TimelineReq) (*web.TimelineResp, error)
 
 	mustEmbedUnimplementedLooseServant()
 }
 
-// RegisterLooseServant register Loose servant to gin
+// RegisterLooseServant 注册宽松权限服务到 gin 引擎
+// 这个函数会将所有的宽松权限API路由注册到gin路由器中
 func RegisterLooseServant(e *gin.Engine, s Loose) {
+	// 创建v1版本的路由组
 	router := e.Group("v1")
-	// use chain for router
+	// 应用中间件链到路由组
 	middlewares := s.Chain()
 	router.Use(middlewares...)
 
-	// register routes info to router
+	// 注册路由信息到路由器
+
+	// GET /v1/post - 获取单条动态详情
 	router.Handle("GET", "post", func(c *gin.Context) {
 		select {
 		case <-c.Request.Context().Done():
@@ -50,6 +75,8 @@ func RegisterLooseServant(e *gin.Engine, s Loose) {
 		resp, err := s.TweetDetail(req)
 		s.Render(c, resp, err)
 	})
+
+	// GET /v1/post/comments - 获取动态评论列表
 	router.Handle("GET", "post/comments", func(c *gin.Context) {
 		select {
 		case <-c.Request.Context().Done():
@@ -69,6 +96,8 @@ func RegisterLooseServant(e *gin.Engine, s Loose) {
 		var rv _render_ = resp
 		rv.Render(c)
 	})
+
+	// GET /v1/tags - 获取话题标签列表
 	router.Handle("GET", "tags", func(c *gin.Context) {
 		select {
 		case <-c.Request.Context().Done():
@@ -83,6 +112,8 @@ func RegisterLooseServant(e *gin.Engine, s Loose) {
 		resp, err := s.TopicList(req)
 		s.Render(c, resp, err)
 	})
+
+	// GET /v1/user/profile - 获取用户基本资料
 	router.Handle("GET", "user/profile", func(c *gin.Context) {
 		select {
 		case <-c.Request.Context().Done():
@@ -97,76 +128,132 @@ func RegisterLooseServant(e *gin.Engine, s Loose) {
 		resp, err := s.GetUserProfile(req)
 		s.Render(c, resp, err)
 	})
+
+	// GET /v1/user/posts - 获取指定用户的动态列表
+	// 【功能说明】：获取特定用户发布的所有动态，支持多种展示样式
+	// 【核心参数】：username (必需) - 指定要查看的用户名
+	// 【可选参数】：style - 动态展示样式，支持以下值：
+	//   - "post" (默认): 用户发布的普通动态
+	//   - "comment": 用户参与评论的动态
+	//   - "highlight": 用户的精华动态
+	//   - "media": 用户发布的媒体类动态(图片、视频等)
+	//   - "star": 用户点赞收藏的动态
+	// 【权限控制】：根据用户关系(自己/好友/关注/游客)显示不同可见性的内容
+	// 【缓存策略】：支持缓存，提高响应速度
 	router.Handle("GET", "user/posts", func(c *gin.Context) {
 		select {
-		case <-c.Request.Context().Done():
+		case <-c.Request.Context().Done(): // 检查请求是否被取消
 			return
 		default:
 		}
+		// 创建用户动态请求结构体，包含username、style等参数
 		req := new(web.GetUserTweetsReq)
+		// 绑定HTTP请求参数到结构体，进行参数验证
 		if err := s.Bind(c, req); err != nil {
-			s.Render(c, nil, err)
+			s.Render(c, nil, err) // 参数验证失败，返回错误
 			return
 		}
+		// 调用业务逻辑层获取指定用户的动态列表
 		resp, err := s.GetUserTweets(req)
 		if err != nil {
-			s.Render(c, nil, err)
+			s.Render(c, nil, err) // 业务处理失败，返回错误
 			return
 		}
+		// 成功获取数据，渲染JSON响应
 		var rv _render_ = resp
 		rv.Render(c)
 	})
+
+	// GET /v1/posts - 获取全站时间线动态流
+	// 【功能说明】：获取全站范围的动态流，这是首页展示的核心接口
+	// 【应用场景】：首页动态流、搜索结果、全站热门内容等
+	// 【核心参数】：
+	//   - query: 搜索关键词，为空时获取首页流，有值时进行搜索
+	//   - type: 搜索类型(当有query时使用)
+	//   - style: 动态流样式，支持以下值：
+	//     * "newest" (默认): 全站最新动态，按发布时间倒序
+	//     * "hots": 全站热门动态，按热度排序(点赞、评论、分享综合)
+	//     * "following": 关注用户的动态流(需要登录)
+	//   - page: 页码(从1开始)
+	//   - page_size: 每页条数
+	// 【权限说明】：
+	//   - 无需登录即可访问newest和hots
+	//   - following模式需要登录，会聚合关注用户的动态
+	//   - 根据动态可见性设置过滤内容(公开/好友可见/关注可见等)
+	// 【缓存策略】：支持多级缓存，大幅提升性能
+	// 【与user/posts的区别】：
+	//   - posts: 全站动态流，数据来源是所有用户
+	//   - user/posts: 特定用户动态，数据来源是单一用户
 	router.Handle("GET", "posts", func(c *gin.Context) {
 		select {
-		case <-c.Request.Context().Done():
+		case <-c.Request.Context().Done(): // 检查请求上下文是否被取消
 			return
 		default:
 		}
+		// 创建时间线请求结构体，用于接收全站动态流参数
 		req := new(web.TimelineReq)
 		var bv _binding_ = req
+		// 绑定并验证请求参数，TimelineReq有自定义Bind方法处理特殊逻辑
 		if err := bv.Bind(c); err != nil {
-			s.Render(c, nil, err)
+			s.Render(c, nil, err) // 参数绑定失败，返回参数错误
 			return
 		}
+		// 调用时间线业务逻辑，根据参数获取相应的动态流
 		resp, err := s.Timeline(req)
 		if err != nil {
-			s.Render(c, nil, err)
+			s.Render(c, nil, err) // 业务逻辑处理失败，返回服务器错误
 			return
 		}
+		// 成功处理请求，渲染JSON响应返回给客户端
 		var rv _render_ = resp
 		rv.Render(c)
 	})
 }
 
-// UnimplementedLooseServant can be embedded to have forward compatible implementations.
+// UnimplementedLooseServant 未实现的宽松权限服务
+// 可以嵌入此结构体以获得向前兼容的实现
 type UnimplementedLooseServant struct{}
 
+// Chain 返回空的中间件链
 func (UnimplementedLooseServant) Chain() gin.HandlersChain {
 	return nil
 }
 
+// TweetDetail 获取动态详情的未实现版本
+// 返回HTTP 501 Not Implemented错误
 func (UnimplementedLooseServant) TweetDetail(req *web.TweetDetailReq) (*web.TweetDetailResp, error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+// TweetComments 获取动态评论的未实现版本
+// 返回HTTP 501 Not Implemented错误
 func (UnimplementedLooseServant) TweetComments(req *web.TweetCommentsReq) (*web.TweetCommentsResp, error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+// TopicList 获取话题列表的未实现版本
+// 返回HTTP 501 Not Implemented错误
 func (UnimplementedLooseServant) TopicList(req *web.TopicListReq) (*web.TopicListResp, error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+// GetUserProfile 获取用户资料的未实现版本
+// 返回HTTP 501 Not Implemented错误
 func (UnimplementedLooseServant) GetUserProfile(req *web.GetUserProfileReq) (*web.GetUserProfileResp, error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+// GetUserTweets 获取用户动态的未实现版本
+// 返回HTTP 501 Not Implemented错误
 func (UnimplementedLooseServant) GetUserTweets(req *web.GetUserTweetsReq) (*web.GetUserTweetsResp, error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+// Timeline 获取时间线的未实现版本
+// 返回HTTP 501 Not Implemented错误
 func (UnimplementedLooseServant) Timeline(req *web.TimelineReq) (*web.TimelineResp, error) {
 	return nil, mir.Errorln(http.StatusNotImplemented, http.StatusText(http.StatusNotImplemented))
 }
 
+// mustEmbedUnimplementedLooseServant 确保嵌入UnimplementedLooseServant结构体
 func (UnimplementedLooseServant) mustEmbedUnimplementedLooseServant() {}
