@@ -1,0 +1,84 @@
+# paopao-ce 本地部署配置文件
+App:
+  RunMode: debug
+  DefaultPageSize: 10
+  MaxPageSize: 100
+
+Features:
+  Default: ["Web", "Frontend:EmbedWeb", "Meili", "LocalOSS", "MySQL", "BigCacheIndex", "LoggerFile"]
+
+WebServer:
+  HttpIp: 0.0.0.0
+  HttpPort: 8008
+  ReadTimeout: 60
+  WriteTimeout: 60
+
+# 数据库配置
+MySQL:
+  Username: paopao
+  Password: paopao
+  Host: 127.0.0.1:3306
+  DBName: paopao
+  Charset: utf8mb4
+  ParseTime: True
+  MaxIdleConns: 10
+  MaxOpenConns: 30
+
+# Redis缓存
+Redis:
+  InitAddress:
+  - 127.0.0.1:6379
+
+# 搜索引擎
+Meili:
+  Host: 127.0.0.1:7700
+  Index: paopao-data
+  ApiKey: paopao-meilisearch
+  Secure: False
+
+# 本地文件存储
+LocalOSS:
+  SavePath: custom/data/paopao-ce/oss
+  Secure: False
+  Bucket: paopao
+  Domain: 127.0.0.1:8008
+
+# 日志配置
+Logger:
+  Level: debug
+LoggerFile:
+  SavePath: custom/data/paopao-ce/logs
+  FileName: app
+  FileExt: .log
+
+# JWT安全
+JWT:
+  Secret: your-local-secret-key-change-it
+  Issuer: paopao-api
+  Expire: 86400
+
+# 前端配置
+WebProfile:
+  UseFriendship: true
+  EnableTrendsBar: true
+  EnableWallet: false
+  AllowTweetAttachment: true
+  AllowTweetVideo: true
+  AllowUserRegister: true
+  AllowPhoneBind: false
+  DefaultTweetMaxLength: 2000
+  DefaultTweetVisibility: public
+  DefaultMsgLoopInterval: 5000
+  CopyrightTop: "本地部署 paopao-ce"
+  CopyrightLeft: "本地开发"
+  CopyrightRight: "paopao-ce 本地实例"
+
+# 缓存配置
+BigCacheIndex:
+  MaxIndexPage: 512
+  Verbose: False
+  ExpireInSecond: 300
+
+Database:
+  LogLevel: error
+  TablePrefix: p_ 
