@@ -11,6 +11,9 @@
 - [paopao feeds流技术QA](paopao-feeds-qa.md) - feeds流拉取功能深度解析
 - [后端项目概览](后端项目概览.md) - 项目整体架构概述
 
+### 性能测试类
+- [paopao-ce Feeds流性能压测方案](paopao-feeds-performance-testing.md) - 完整的假数据生成和压测方案
+
 ## 看代码
 1. 登录流程(JWT)   
 2. 注册流程  
